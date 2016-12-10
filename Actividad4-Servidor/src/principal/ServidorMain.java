@@ -1,9 +1,12 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+    Actividad 4
+    Crear un servidor para que cuando se inicia sesión desde un cliente con 
+un nombre de usuario y contraseña, el sistema permita Ver el contenido del 
+directorio actual, mostrar el contenido de un determinado archivo y salir.
 
+    Para realizar el ejercicio primero debes crear un diagrama de estados
+que muestre el funcionamiento del servidor
+ */
 package principal;
 
 /**
