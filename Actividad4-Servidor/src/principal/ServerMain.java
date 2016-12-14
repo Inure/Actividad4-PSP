@@ -75,12 +75,32 @@ public class ServerMain extends Thread {
                 if ((usuario.matches("Prueba")) && (contra.matches("123456"))){
                     System.out.println("Usuario/Contraseña aceptados");
                     validado = false;
+
+                    //Enviamos la validación
+                    flujo_salida.writeInt(1);
+                    flujo_salida.flush();
+                    
+                    
+                    
+                } else {
+                    System.out.println("No aceptada la validación");
+                    flujo_salida.writeInt(0);
+                    flujo_salida.flush();
+                    System.out.println("El contador va "+contador);
+                }
+                
+                if (contador >= 3){
+                    validado = false;
+                    System.out.println("Demasiados intentos");
                 }
             
-            } while ((validado) || (contador == 3));
+            } while (validado);
+            
+            System.out.println("Hemos salido del while");
             flujo_entrada.close();
             flujo_salida.close();
             skClient.close();
+            
             
             
         }catch (Exception e) {

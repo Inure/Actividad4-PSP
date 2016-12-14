@@ -27,7 +27,8 @@ public class ClienteMain {
     DataOutputStream flujo_salida;
     Scanner entrada = new Scanner(System.in);
     
-    int validado;
+    int validado = 0;
+    int contador = 0;
     
     public ClienteMain(){
         try {
@@ -38,7 +39,7 @@ public class ClienteMain {
             flujo_salida = new DataOutputStream(sCliente.getOutputStream());
             
             do {
-                
+                contador++;
                 //Solicitamos el usuario
                 System.out.print("Introduzca usuario: ");
                 String usuario = entrada.nextLine();
@@ -56,8 +57,16 @@ public class ClienteMain {
 
                 //Esperamos confirmación por parte del Servidor
 
-                String datos = flujo_entrada.readUTF();
-                validado = Integer.parseInt(datos);
+                validado = flujo_entrada.readInt();
+                
+                if (validado == 0){
+                    System.out.println("--> Usuario/Contraseña no validos");
+                    System.out.println("--> Vuelva a introducirlos");
+                    if (contador >= 3){
+                        validado = 1;
+                        System.out.println("--> Demasiados intentos, cerramos conexión");
+                    }
+                }
             
             } while (validado == 0);
             
