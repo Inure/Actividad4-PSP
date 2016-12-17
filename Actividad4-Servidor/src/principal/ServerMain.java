@@ -9,8 +9,11 @@ muestre el funcionamiento del servidor.
 */
 package principal;
 
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -41,12 +44,12 @@ public class ServerMain extends Thread {
         try {
             //Inicio del servidor en el puerto
             ServerSocket skServer = new ServerSocket (puerto);
-            System.out.println("Escuchando el puerto "+puerto);
+            System.out.println("-> Escuchando el puerto "+puerto);
             
             while (true){ //Se ha puesto una conexión sin límite
                 //Se aceptan conexiones
                 Socket skCliente = skServer.accept();
-                System.out.println("Cliente conectado");
+                System.out.println("-> Cliente conectado");
                 
                 //Se abre un hilo por cada cliente
                 new ServerMain(skCliente).start();
@@ -68,35 +71,72 @@ public class ServerMain extends Thread {
            
                 //Recibimos el usuario y contraseña
                 String usuario = flujo_entrada.readUTF();
-                System.out.println(usuario);
                 String contra = flujo_entrada.readUTF();
-                System.out.println(contra);
 
                 if ((usuario.matches("Prueba")) && (contra.matches("123456"))){
-                    System.out.println("Usuario/Contraseña aceptados");
+                    System.out.println("-> Usuario/Contraseña aceptados");
                     validado = false;
 
                     //Enviamos la validación
                     flujo_salida.writeInt(1);
                     flujo_salida.flush();
                     
+                    //Conseguimos el listado de archivos
+                    File busqueda = new File (".");
+                    File [] listaArchivos = busqueda.listFiles();
+                    System.out.println("-> Enviamos el número de archivos que son: ");
+                    flujo_salida.writeInt(listaArchivos.length);
+                    flujo_salida.flush();
+                    
+                    System.out.println("-> Enviamos la lista de archivos");
+                    for (File archivo:listaArchivos){
+                        //System.out.println(archivo.getName());
+                        flujo_salida.writeUTF(archivo.getName());
+                        flujo_salida.flush();
+                    }
+                    
+                    //Leemos el archivo que desea recibir el cliente
+                    String archivo = flujo_entrada.readUTF();
+                    System.out.println("Archivo solicitado "+archivo);
+                    
+                    File fichero = new File (archivo);
+                    int tam = (int) fichero.length();
+                    
+                    //Enviamos el tamaño del archivo
+                    flujo_salida.writeInt(tam);
+                    flujo_salida.flush();
+                    
+                    byte [] envioFichero = new byte [tam];
+                    FileInputStream entradaFichero = new FileInputStream(fichero.getName());
+                    BufferedInputStream bufferEntrada = new BufferedInputStream(entradaFichero);
+                    bufferEntrada.read(envioFichero);
+                    
+                    flujo_salida.writeInt(envioFichero.length);
+                    flujo_salida.flush();
+                    
+                    for (int i = 0; i < envioFichero.length; i++) {
+                        flujo_salida.write(envioFichero[i]);
+                        flujo_salida.flush();
+                    }
+                    
+                    System.out.println("-> Enviado archivo solicitado");
                     
                     
                 } else {
-                    System.out.println("No aceptada la validación");
+                    System.out.println("-> No aceptada la validación");
                     flujo_salida.writeInt(0);
                     flujo_salida.flush();
-                    System.out.println("El contador va "+contador);
+                    System.out.println("-> El contador va "+contador);
                 }
                 
                 if (contador >= 3){
                     validado = false;
-                    System.out.println("Demasiados intentos");
+                    System.out.println("-> Demasiados intentos");
                 }
             
             } while (validado);
             
-            System.out.println("Hemos salido del while");
+            System.out.println("-> Cerramos la conexión con el cliente");
             flujo_entrada.close();
             flujo_salida.close();
             skClient.close();

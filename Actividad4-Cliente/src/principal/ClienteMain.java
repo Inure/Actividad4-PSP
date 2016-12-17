@@ -9,9 +9,15 @@ muestre el funcionamiento del servidor.
 */
 package principal;
 
+import java.awt.Desktop;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -29,8 +35,10 @@ public class ClienteMain {
     
     int validado = 0;
     int contador = 0;
+    boolean inOut = true;
     
     public ClienteMain(){
+        
         try {
             Socket sCliente = new Socket (HOST, Puerto);
             
@@ -41,11 +49,11 @@ public class ClienteMain {
             do {
                 contador++;
                 //Solicitamos el usuario
-                System.out.print("Introduzca usuario: ");
+                System.out.print("-> Introduzca usuario: ");
                 String usuario = entrada.nextLine();
                 
                 //Solicitamos la contraseña
-                System.out.print("Introduzca la contraseña: ");
+                System.out.print("-> Introduzca la contraseña: ");
                 String contra = entrada.nextLine();
                 
                 //Enviamos el usuario y la contraseña
@@ -60,17 +68,64 @@ public class ClienteMain {
                 validado = flujo_entrada.readInt();
                 
                 if (validado == 0){
-                    System.out.println("--> Usuario/Contraseña no validos");
-                    System.out.println("--> Vuelva a introducirlos");
+                    System.out.println("-> Usuario/Contraseña no validos");
+                    System.out.println("-> Vuelva a introducirlos");
                     if (contador >= 3){
                         validado = 1;
-                        System.out.println("--> Demasiados intentos, cerramos conexión");
+                        System.out.println("-> Demasiados intentos, cerramos conexión");
                     }
                 }
             
             } while (validado == 0);
             
-            //Cerramos
+            if (validado == 1){
+                
+                int numArc = flujo_entrada.readInt();
+
+                for (int i = 0; i < numArc; i++) {
+                    System.out.println(flujo_entrada.readUTF());
+                }
+                System.out.println("-> Listado terminado");
+                    
+                }
+                
+                System.out.print("-> Introduce el nombre del archivo que quieres leer: ");
+                String archivo = entrada.nextLine();
+
+                //Enviamos el archivo que deseamos leer
+                flujo_salida.writeUTF(archivo);
+                flujo_salida.flush();
+                
+                String nombreArchivo = "Recibido_"+archivo;
+                    
+                //Creamos el flujo de salida
+                FileOutputStream fos = new FileOutputStream(nombreArchivo);
+                BufferedOutputStream out = new BufferedOutputStream (fos);
+                BufferedInputStream in = new BufferedInputStream (sCliente.getInputStream());
+
+                //Recibimos el tamaño del archivo y creamos el array 
+                int tam = flujo_entrada.readInt();
+                byte [] buffer = new byte[tam];
+                for (int i = 0; i < buffer.length; i++) {
+                    buffer[i] = (byte)in.read();
+                }
+
+                //Escribimos el archivo
+                out.write(buffer);
+                out.flush();
+                System.out.println("-> Recepción finalizada");
+                File fichero = new File (nombreArchivo);
+                Desktop.getDesktop().open(fichero);
+                System.out.println("-> Abrimos el archivo");
+
+                in.close();
+                out.close();
+                
+                
+            
+            
+            //Cerramos conexiones
+            System.out.println("Cerramos conexiones");
             sCliente.close();
             
         } catch (Exception e){
