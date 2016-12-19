@@ -204,11 +204,16 @@ public class ServerMain extends Thread {
                         System.out.println("-> El archivo no existe, solicitamos nuevo nombre de archivo");
                         System.out.println(" ");
                     }
+                    
+                } else {
+                    
+                    System.out.println("** El cliente no desea ningún archivo.");
+                    cierreConexion();
 
                 }
             } while (cont2<3);
             
-            if (cont2>=3){
+            if (cont2==3){
                 System.out.println("*** Demasiados intentos.");
             }
             

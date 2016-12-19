@@ -74,7 +74,7 @@ public class ClienteMain {
                     System.out.println("*** Usuario/Contraseña no validos");
                     System.out.println(" ");
                     if (contador >= 3){
-                        validado = 1;
+                        validado = 2;
                         System.out.println("*** Demasiados intentos, cerramos conexión");
                     } else {
                         System.out.println("Vuelva a introducirlos");
