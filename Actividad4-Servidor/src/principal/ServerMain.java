@@ -24,13 +24,32 @@ import java.net.Socket;
  */
 
 public class ServerMain extends Thread {
+    //Datos de la conexión
+    private static final int puerto = 1500;
+    //Variables IN/OUT (E/S)
     DataInputStream flujo_entrada;
     DataOutputStream flujo_salida;
     Socket skClient;
-    int contador = 0;
-    boolean validado = true;
-    //Datos de la conexión
-    private static final int puerto = 1500;
+    //Variables de trabajo
+    int contador = 0; //Contador por las veces que nos hemos equivocado en la contraseña
+    int cont2 = 0; //Contador para las oportunidades de nombre de archivo válido
+    int validado = 0; //Valores 0 no validado - 1 validado - 2 demasiados intentos
+    boolean siNO = false;
+    boolean existe = false;
+    File [] listaArchivos;
+    
+    /**
+     * Pequeña función que se usa sólo para cerrar las conexiones E/S.
+     */
+    public void cierreConexion(){
+        try {
+            flujo_entrada.close();
+            flujo_salida.close();
+            skClient.close();
+        } catch (IOException ex){
+            System.err.println(ex);
+        }
+    }
 
     public ServerMain(Socket skCliente){
         //Constructor
@@ -59,6 +78,7 @@ public class ServerMain extends Thread {
         }
     }
     
+    @Override
     public void run(){
         //Tareas
         try {
@@ -67,83 +87,135 @@ public class ServerMain extends Thread {
             flujo_salida = new DataOutputStream (skClient.getOutputStream());
             
             do {
-                contador++;
-           
                 //Recibimos el usuario y contraseña
                 String usuario = flujo_entrada.readUTF();
                 String contra = flujo_entrada.readUTF();
-
-                if ((usuario.matches("Prueba")) && (contra.matches("123456"))){
-                    System.out.println("-> Usuario/Contraseña aceptados");
-                    validado = false;
-
+                
+                Validar user = new Validar(usuario, contra);
+                boolean resp = user.comprobacion();
+                
+                if (resp){
+                    validado = 1;
+                    
                     //Enviamos la validación
                     flujo_salida.writeInt(1);
                     flujo_salida.flush();
+                } else {
+                    contador++;
+                    System.out.println(" ");
+                    System.out.println("** No aceptada la validación "+contador);
+                    flujo_salida.writeInt(0);
+                    flujo_salida.flush();
+                    //System.out.println("El contador va "+contador);
+                }
+                
+                if (contador >= 3){
+                    validado = 2;
+                }
+                
+            } while (validado == 0);
+            
+            //Reaccionamos según la validación
+            switch (validado) {
+                    
+                case 1:
+                    System.out.println(" ");
+                    System.out.println("-> Usuario/Contraseña aceptados");
                     
                     //Conseguimos el listado de archivos
                     File busqueda = new File (".");
-                    File [] listaArchivos = busqueda.listFiles();
-                    System.out.println("-> Enviamos el número de archivos que son: ");
+                    listaArchivos = busqueda.listFiles();
+                    
+                    //Enviamos el número de archivos que son primero para
+                    //preparar la recepción :
                     flujo_salida.writeInt(listaArchivos.length);
                     flujo_salida.flush();
                     
+                    //Enviamos el listado de archivos
+                    System.out.println(" ");
                     System.out.println("-> Enviamos la lista de archivos");
                     for (File archivo:listaArchivos){
-                        //System.out.println(archivo.getName());
                         flujo_salida.writeUTF(archivo.getName());
                         flujo_salida.flush();
                     }
                     
+                    break;
+                case 2:
+                    System.out.println("-> Demasiados intentos. Cerramos conexión.");
+                    siNO = false;
+                    
+                    //Cerramos conexion
+                    cierreConexion();
+                    break;
+                default:
+                    System.out.println("-> Error en la validación. Cerramos conexión.");
+                    siNO = false;
+                    
+                    //Cerramos conexion
+                    cierreConexion();
+                    break;
+
+            }
+            
+            do {
+                //Esperamos a que el cliente nos diga si quiere o no un archivo
+                siNO = flujo_entrada.readBoolean();
+                
+                if (siNO){
                     //Leemos el archivo que desea recibir el cliente
                     String archivo = flujo_entrada.readUTF();
+                    System.out.println(" ");
                     System.out.println("Archivo solicitado "+archivo);
-                    
-                    File fichero = new File (archivo);
-                    int tam = (int) fichero.length();
-                    
-                    //Enviamos el tamaño del archivo
-                    flujo_salida.writeInt(tam);
-                    flujo_salida.flush();
-                    
-                    byte [] envioFichero = new byte [tam];
-                    FileInputStream entradaFichero = new FileInputStream(fichero.getName());
-                    BufferedInputStream bufferEntrada = new BufferedInputStream(entradaFichero);
-                    bufferEntrada.read(envioFichero);
-                    
-                    flujo_salida.writeInt(envioFichero.length);
-                    flujo_salida.flush();
-                    
-                    for (int i = 0; i < envioFichero.length; i++) {
-                        flujo_salida.write(envioFichero[i]);
-                        flujo_salida.flush();
+
+                    for(File elemento:listaArchivos){
+                        if (elemento.getName().matches(archivo)){
+                            existe = true;
+                        }
                     }
-                    
-                    System.out.println("-> Enviado archivo solicitado");
-                    
-                    
-                } else {
-                    System.out.println("-> No aceptada la validación");
-                    flujo_salida.writeInt(0);
-                    flujo_salida.flush();
-                    System.out.println("-> El contador va "+contador);
+
+                    if (existe){
+                        //Lo comunicamos al cliente
+                        flujo_salida.writeBoolean(true);
+                        flujo_salida.flush();
+
+                        File fichero = new File (archivo);
+                        int tam = (int) fichero.length();
+
+                        //Enviamos el tamaño del archivo
+                        flujo_salida.writeInt(tam);
+                        flujo_salida.flush();
+
+                        byte [] buffer = new byte [tam];
+                        FileInputStream entradaFichero = new FileInputStream(fichero.getName());
+                        BufferedInputStream bufferEntrada = new BufferedInputStream(entradaFichero);
+                        bufferEntrada.read(buffer);
+
+                        for (int i = 0; i < tam; i++) {
+                            flujo_salida.write(buffer[i]);
+                            flujo_salida.flush();
+                        }
+                        System.out.println("-> Enviado archivo solicitado");
+                        cont2 = 4;
+                    } else {
+                        flujo_salida.writeBoolean(false);
+                        flujo_salida.flush();
+                        cont2++;
+                        System.out.println(" ");
+                        System.out.println("-> El archivo no existe, solicitamos nuevo nombre de archivo");
+                        System.out.println(" ");
+                    }
+
                 }
-                
-                if (contador >= 3){
-                    validado = false;
-                    System.out.println("-> Demasiados intentos");
-                }
+            } while (cont2<3);
             
-            } while (validado);
+            if (cont2>=3){
+                System.out.println("*** Demasiados intentos.");
+            }
             
             System.out.println("-> Cerramos la conexión con el cliente");
-            flujo_entrada.close();
-            flujo_salida.close();
-            skClient.close();
+            cierreConexion();
             
-            
-            
-        }catch (Exception e) {
+        }catch (IOException e) {
             System.err.println(e);
         }
     }

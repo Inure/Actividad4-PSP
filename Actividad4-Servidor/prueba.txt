@@ -1,0 +1,4 @@
+Archivo de prueba, envío desde el servidor al cliente por medio de Sockets.
+
+Saludos,
+Carina Ripoll

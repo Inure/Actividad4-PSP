@@ -17,7 +17,6 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
@@ -29,13 +28,16 @@ public class ClienteMain {
     //Datos de conexión
     private static final String HOST = "localhost";
     private static final int Puerto = 1500;
+    //Variables IN/OUT (E/S)
     DataInputStream flujo_entrada;
     DataOutputStream flujo_salida;
     Scanner entrada = new Scanner(System.in);
-    
+    //Variables de trabajo
     int validado = 0;
     int contador = 0;
-    boolean inOut = true;
+    int cont2 = 0;
+    String archivo;
+    boolean existe = false;
     
     public ClienteMain(){
         
@@ -68,11 +70,14 @@ public class ClienteMain {
                 validado = flujo_entrada.readInt();
                 
                 if (validado == 0){
-                    System.out.println("-> Usuario/Contraseña no validos");
-                    System.out.println("-> Vuelva a introducirlos");
+                    System.out.println(" ");
+                    System.out.println("*** Usuario/Contraseña no validos");
+                    System.out.println(" ");
                     if (contador >= 3){
                         validado = 1;
-                        System.out.println("-> Demasiados intentos, cerramos conexión");
+                        System.out.println("*** Demasiados intentos, cerramos conexión");
+                    } else {
+                        System.out.println("Vuelva a introducirlos");
                     }
                 }
             
@@ -80,50 +85,94 @@ public class ClienteMain {
             
             if (validado == 1){
                 
+                //Primero recibimos el número de archivos a leer
                 int numArc = flujo_entrada.readInt();
-
+                //Recibimos los nombres de los archivos de la carpeta
+                System.out.println(" ");
+                System.out.println(" ");
+                System.out.println("    LISTADO DE ARCHIVOS - CARPETA SERVIDOR");
                 for (int i = 0; i < numArc; i++) {
-                    System.out.println(flujo_entrada.readUTF());
+                    System.out.println("    |   " + flujo_entrada.readUTF());
                 }
+                System.out.println(" ");
+                System.out.println(" ");
                 System.out.println("-> Listado terminado");
+                
+                do {
                     
+                    System.out.print("-> Introduce el nombre del archivo que quieres"
+                            + " leer o escribe (n/N) para salir: ");
+                    archivo = entrada.nextLine();
+
+                    if (archivo.toUpperCase().matches("N")){
+                        System.out.println("Saliendo del programa ....");
+                        flujo_salida.writeBoolean(false);
+                        flujo_salida.flush();
+
+                        existe = false;
+                        cont2 = 4;
+
+                    } else {
+                        //Indicamos que sí enviamos archivo
+                        flujo_salida.writeBoolean(true);
+                        flujo_salida.flush();
+
+                        //Enviamos el nombre del archivo que deseamos leer
+                        flujo_salida.writeUTF(archivo);
+                        flujo_salida.flush();
+
+                        //El servidor nos comunica si existe o no el archivo
+                        existe = flujo_entrada.readBoolean();
+                        
+                        if (existe){
+                            cont2 = 4;
+                        } else {
+                            System.out.println(" ");
+                            System.out.println("** El archivo no existe.");
+                            cont2++;
+                        }
+                    }
+                    
+                } while (cont2<3);
+                
+                if (existe){
+                    
+                    //El servidor nos ha dicho que existe y nos preparamos para
+                    //recibirlo
+                    String nombreArchivo = "Recibido_"+archivo;
+
+                    //Recibimos el tamaño del buffer para preparar la entrada
+                    int tam = flujo_entrada.readInt();
+
+                    //Creamos el flujo de salida
+                    FileOutputStream fileOut = new FileOutputStream(nombreArchivo);
+                    BufferedOutputStream salidaFichero = new BufferedOutputStream (fileOut);
+                    BufferedInputStream entradaBuff = new BufferedInputStream (sCliente.getInputStream());
+
+                    //Recibimos el tamaño del archivo y creamos el array 
+                    byte [] buffer = new byte[tam];
+                    for (int i = 0; i < buffer.length; i++) {
+                        buffer[i] = (byte)entradaBuff.read();
+                    }
+
+                    //Escribimos el archivo
+                    salidaFichero.write(buffer);
+                    salidaFichero.flush();
+                    System.out.println("-> Recepción finalizada");
+                    File fichero = new File (nombreArchivo);
+                    Desktop.getDesktop().open(fichero);
+                    System.out.println("-> Abrimos el archivo");
+
+                    //Cerramos los flujos de entrada/salida del buffer
+                    entradaBuff.close();
+                    salidaFichero.close();
                 }
                 
-                System.out.print("-> Introduce el nombre del archivo que quieres leer: ");
-                String archivo = entrada.nextLine();
-
-                //Enviamos el archivo que deseamos leer
-                flujo_salida.writeUTF(archivo);
-                flujo_salida.flush();
-                
-                String nombreArchivo = "Recibido_"+archivo;
-                    
-                //Creamos el flujo de salida
-                FileOutputStream fos = new FileOutputStream(nombreArchivo);
-                BufferedOutputStream out = new BufferedOutputStream (fos);
-                BufferedInputStream in = new BufferedInputStream (sCliente.getInputStream());
-
-                //Recibimos el tamaño del archivo y creamos el array 
-                int tam = flujo_entrada.readInt();
-                byte [] buffer = new byte[tam];
-                for (int i = 0; i < buffer.length; i++) {
-                    buffer[i] = (byte)in.read();
+                if (cont2==3) {
+                    System.out.println("*** Demasiados intentos cerramos conexión");
                 }
-
-                //Escribimos el archivo
-                out.write(buffer);
-                out.flush();
-                System.out.println("-> Recepción finalizada");
-                File fichero = new File (nombreArchivo);
-                Desktop.getDesktop().open(fichero);
-                System.out.println("-> Abrimos el archivo");
-
-                in.close();
-                out.close();
-                
-                
-            
-            
+            }
+        
             //Cerramos conexiones
             System.out.println("Cerramos conexiones");
             sCliente.close();
